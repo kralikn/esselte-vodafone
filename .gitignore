@@ -1,0 +1,46 @@
+# Python cache és bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environment (ne verziókövesd)
+venv/
+ENV/
+env/
+.venv/
+
+# VS Code beállítások (opcionális)
+.vscode/
+
+# SQLite adatbázis – ha nem akarod verziókövetni
+database.sqlite
+
+# Operációs rendszer fájlok
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# Excel vagy ideiglenes fájlok
+*.xlsx
+*.xls
+*.xlsm
+*.bak
+*.tmp
+~$*
+
+# Jupyter (ha használnál)
+.ipynb_checkpoints/
+
+# Log vagy hibakimenet fájlok
+*.log
+
+# Átmeneti fájlok
+*.swp
+*.swo
+
+# Projekt-specifikus build/output (ha lenne)
+dist/
+build/
+*.spec
