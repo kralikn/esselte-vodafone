@@ -1,10 +1,12 @@
 import sqlite3
 import os
+from utils.utils import get_base_path
 
 
 class DatabaseManager:
-    def __init__(self, db_path="database.sqlite"):
-        self.db_path = db_path
+    def __init__(self):
+        base_path = get_base_path()
+        self.db_path = os.path.join(base_path, "database.sqlite")
         self.conn = None
         self.cursor = None
         self.connect()
