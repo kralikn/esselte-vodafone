@@ -15,7 +15,9 @@ env/
 .vscode/
 
 # SQLite adatbázis – ha nem akarod verziókövetni
-database.sqlite
+# database.sqlite
+*.sqlite
+*.sql
 
 # Operációs rendszer fájlok
 .DS_Store
