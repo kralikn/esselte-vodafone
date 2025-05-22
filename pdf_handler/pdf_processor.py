@@ -27,18 +27,42 @@ class PdfProcessor:
     def _load_teszor_category_map(self):
         return dict(self.db.get_all_teszor_categories())
 
-    def process(self, output_excel_path: str):
+    def process(self, output_excel_path: str, progress_callback=None):
         try:
             with pdfplumber.open(self.file_path) as pdf:
-                for page in pdf.pages:
+
+                is_dijak_section = False
+                dijak_lines_accumulator = []
+
+                total_pages = len(pdf.pages)
+
+                for i, page in enumerate(pdf.pages):
+                    if progress_callback:
+                        progress_callback(i + 1, total_pages)
+
                     text = page.extract_text()
                     if not text:
                         continue
                     lines = text.split("\n")
                     header = lines[0].strip().upper()
+
                     if header in ["KISZÁMLÁZOTT DÍJAK", "ÜGYFÉLSZINTŰ DÍJAK"]:
-                        self._process_dijak(lines)
-                    elif header == "SZÁMLA":
+                        is_dijak_section = True  # kezdete
+                        dijak_lines_accumulator.extend(lines)
+                        # self._process_dijak(lines)
+                    elif is_dijak_section:
+                        dijak_lines_accumulator.extend(lines)
+
+                    # Ellenőrzés, hogy elértük-e a végét
+                    if is_dijak_section and any(
+                        "Kiszámlázott díjak összesen" in l for l in lines
+                    ):
+                        self._process_dijak(dijak_lines_accumulator)
+                        is_dijak_section = False
+                        dijak_lines_accumulator = []
+
+                    # elif header == "SZÁMLA":
+                    if header == "SZÁMLA":
                         self._process_szamla_page(text)
 
             self._save_to_excel(output_excel_path)
@@ -145,6 +169,10 @@ class PdfProcessor:
                 df["TESZOR szám"].map(self.teszor_category_map).fillna("egyéb")
             )
 
+            # Jogcím lekérdezés és hozzáfűzés
+            jogcim_df = df.apply(self._get_jogcim_adatok, axis=1)
+            df = pd.concat([df, jogcim_df], axis=1)
+
             for col in ["Nettó összeg (Ft)", "ÁFA összege (Ft)", "Összesen (Ft)"]:
                 df[col] = df[col].apply(self._clean_float)
 
@@ -184,7 +212,14 @@ class PdfProcessor:
         if df_kiszamlazott is not None:
             pivot_df = pd.pivot_table(
                 df_kiszamlazott,
-                index=["Telefonszám", "Dolgozó", "ÁFA kulcs", "Kategória"],
+                index=[
+                    "Telefonszám",
+                    "Dolgozó",
+                    "ÁFA kulcs",
+                    "Jogcím",
+                    "ÁFA kód",
+                    "Főkönyvi szám",
+                ],
                 values=["Nettó összeg (Ft)", "ÁFA összege (Ft)"],
                 aggfunc="sum",
                 fill_value=0,
@@ -201,3 +236,15 @@ class PdfProcessor:
         except Exception:
             self.hibas_ertekek.append(value)
             return None
+
+    def _get_jogcim_adatok(self, row):
+        info = self.db.get_jogcim_info(
+            row["Megnevezés"], row["TESZOR szám"], row["ÁFA kulcs"]
+        )
+        if info:
+            return pd.Series(info, index=["Jogcím", "ÁFA kód", "Főkönyvi szám"])
+        else:
+            return pd.Series(
+                ["ismeretlen", "ismeretlen", "ismeretlen"],
+                index=["Jogcím", "ÁFA kód", "Főkönyvi szám"],
+            )

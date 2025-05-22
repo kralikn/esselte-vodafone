@@ -10,6 +10,9 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QFileDialog,
+    QMessageBox,
+    QProgressDialog,
+    QStackedWidget,
 )
 from PySide6.QtGui import QAction
 from database.db_manager import DatabaseManager
@@ -25,7 +28,7 @@ class MainWindow(QMainWindow):
         self.db = DatabaseManager()
 
         self.setWindowTitle("Vodafone számlafeldolgozás")
-        self.setFixedSize(1000, 550)
+        self.setFixedSize(900, 550)
 
         """Menük létrehozása."""
         menu_bar = self.menuBar()
@@ -42,71 +45,74 @@ class MainWindow(QMainWindow):
 
         left_layout = QVBoxLayout()
 
-        centered_layout = QVBoxLayout()
-        centered_layout.setAlignment(Qt.AlignCenter)
-
-        self.import_button = QPushButton("Vodafone számla importálása")
+        self.import_button = QPushButton("Vodafone számla")
         self.import_button.clicked.connect(self.import_pdf)
 
-        self.status_info_label = QLabel("")
-        self.status_info_label.setAlignment(Qt.AlignCenter)
+        # Felső rész: Importálás
+        import_layout = QVBoxLayout()
+        import_layout.setAlignment(Qt.AlignTop)
+        import_layout.addWidget(QLabel("PDF importálás:"))
+        import_layout.addWidget(self.import_button)
 
-        centered_layout.addWidget(self.import_button)
-        centered_layout.addWidget(self.status_info_label)
+        # Alsó rész: Törzsadat gombok
+        self.jogcim_button = QPushButton("Jogcímek")
+        self.teszor_button = QPushButton("TESZOR számok")
+        self.kivetel_button = QPushButton("Kivételek")
+        self.phoneuser_button = QPushButton("Telefonszámok")
 
-        # button_layout = QHBoxLayout()
-        # button_layout.addStretch()
-        # button_layout.addWidget(self.import_button)
-        # button_layout.addStretch()
+        self.phoneuser_button.clicked.connect(
+            lambda: self.stacked_widget.setCurrentIndex(0)
+        )
+        self.teszor_button.clicked.connect(
+            lambda: self.stacked_widget.setCurrentIndex(1)
+        )
+        self.jogcim_button.clicked.connect(
+            lambda: self.stacked_widget.setCurrentIndex(2)
+        )
+        self.kivetel_button.clicked.connect(
+            lambda: self.stacked_widget.setCurrentIndex(3)
+        )
 
-        # label_layout = QHBoxLayout()
-        # label_layout.addStretch()
-        # label_layout.addWidget(self.status_info_label)
-        # label_layout.addStretch()
+        admin_layout = QVBoxLayout()
+        admin_layout.setAlignment(Qt.AlignTop)
+        admin_layout.addWidget(QLabel("Törzsadatok:"))
+        admin_layout.addWidget(self.jogcim_button)
+        admin_layout.addWidget(self.teszor_button)
+        admin_layout.addWidget(self.kivetel_button)
+        admin_layout.addWidget(self.phoneuser_button)
 
-        left_layout.addStretch()
-        left_layout.addLayout(centered_layout)
-        left_layout.addStretch()
+        # Két különálló frame, hogy tagolt legyen
+        import_frame = QWidget()
+        import_frame.setLayout(import_layout)
 
-        center_layout = QVBoxLayout()
+        admin_frame = QWidget()
+        admin_frame.setLayout(admin_layout)
 
-        table = QTableWidget()
-        rows = self.db.get_all_phone_users()
-        table.setRowCount(len(rows))
-        table.setColumnCount(2)
-        table.setHorizontalHeaderLabels(["Telefonszám", "Dolgozó"])
+        left_layout.addWidget(import_frame)
+        left_layout.addWidget(admin_frame)
 
-        for row_index, (sim_number, owner) in enumerate(rows):
-            table.setItem(row_index, 0, QTableWidgetItem(sim_number))
-            table.setItem(row_index, 1, QTableWidgetItem(owner))
+        self.stacked_widget = QStackedWidget()
 
-        # table.horizontalHeader().setStretchLastSection(True)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Táblák létrehozása külön metódusokkal
+        self.phone_table = self.build_phone_table()
+        self.teszor_table = self.build_teszor_table()
+        self.jogcim_table = self.build_jogcim_table()
+        self.kivetel_table = self.build_kivetel_table()
 
-        center_layout.addWidget(table)
+        # Hozzáadás stack-hez
+        self.stacked_widget.addWidget(self.phone_table)  # index 0
+        self.stacked_widget.addWidget(self.teszor_table)  # index 1
+        self.stacked_widget.addWidget(self.jogcim_table)  # index 2
+        self.stacked_widget.addWidget(self.kivetel_table)  # index 3
+
+        self.stacked_widget.currentChanged.connect(self.refresh_table_on_switch)
 
         right_layout = QVBoxLayout()
-
-        teszor_table = QTableWidget()
-        rows = self.db.get_all_teszor_categories()
-
-        teszor_table.setRowCount(len(rows))
-        teszor_table.setColumnCount(2)
-        teszor_table.setHorizontalHeaderLabels(["TESZOR", "Kategória"])
-
-        for row_index, (teszor, category) in enumerate(rows):
-            teszor_table.setItem(row_index, 0, QTableWidgetItem(teszor))
-            teszor_table.setItem(row_index, 1, QTableWidgetItem(category))
-
-        # table.horizontalHeader().setStretchLastSection(True)
-        teszor_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        right_layout.addWidget(teszor_table)
+        right_layout.addWidget(self.stacked_widget)
 
         # Oszlopokat hozzáadjuk a fő layouthoz
         main_layout.addLayout(left_layout, stretch=2)
-        main_layout.addLayout(center_layout, stretch=2)
-        main_layout.addLayout(right_layout, stretch=2)
+        main_layout.addLayout(right_layout, stretch=6)
 
         # Layout beállítása a központi widgetre
         central_widget.setLayout(main_layout)
@@ -117,21 +123,149 @@ class MainWindow(QMainWindow):
         self.status_bar.addWidget(self.status_label)
         self.setStatusBar(self.status_bar)
 
+    def build_phone_table(self):
+        table = QTableWidget()
+        rows = self.db.get_all_phone_users()  # [(phone_number, owner)]
+        table.setRowCount(len(rows))
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Telefonszám", "Dolgozó"])
+        for i, (phone, owner) in enumerate(rows):
+            table.setItem(i, 0, QTableWidgetItem(phone))
+            table.setItem(i, 1, QTableWidgetItem(owner))
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.setSortingEnabled(True)
+
+        return table
+
+    def build_teszor_table(self):
+        table = QTableWidget()
+        rows = (
+            self.db.get_all_teszor()
+        )  # [(teszor_kod, megnevezes, afa_kulcs, jogcim_id)]
+        table.setRowCount(len(rows))
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(
+            ["TESZOR kód", "Megnevezés", "ÁFA kulcs", "Jogcím ID"]
+        )
+        for i, row in enumerate(rows):
+            for j, value in enumerate(row):
+                table.setItem(i, j, QTableWidgetItem(str(value)))
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.setSortingEnabled(True)
+
+        return table
+
+    def build_jogcim_table(self):
+        table = QTableWidget()
+        rows = self.db.get_all_jogcimek()  # [(nev, afa_kulcs, afa_kod, fokonyvi_szam)]
+        table.setRowCount(len(rows))
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(
+            ["Jogcím", "ÁFA kulcs", "ÁFA kód", "Főkönyvi szám"]
+        )
+        for i, row in enumerate(rows):
+            for j, value in enumerate(row):
+                table.setItem(i, j, QTableWidgetItem(str(value)))
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.setSortingEnabled(True)
+
+        return table
+
+    def build_kivetel_table(self):
+        table = QTableWidget()
+        rows = (
+            self.db.get_all_kivetelek()
+        )  # [(megnevezes, teszor_kod, afa_kulcs, jogcim_id)]
+        table.setRowCount(len(rows))
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(
+            ["Megnevezés", "TESZOR kód", "ÁFA kulcs", "Jogcím ID"]
+        )
+        for i, row in enumerate(rows):
+            for j, value in enumerate(row):
+                table.setItem(i, j, QTableWidgetItem(str(value)))
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.setSortingEnabled(True)
+
+        return table
+
+    def show_message(self, title, message, icon=QMessageBox.Information):
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setIcon(icon)
+        msg_box.exec()
+
+    def update_progress(self, current, total):
+        self.progress.setLabelText(
+            f"{self.file_name}: {current}/{total}. oldal feldolgozása…"
+        )
+        self.progress.setMaximum(total)
+        self.progress.setValue(current)
+        self.app.processEvents()
+
+    def refresh_table_on_switch(self, index):
+        if index == 0:
+            self._refresh_table(self.phone_table, self.db.get_all_phone_users)
+        elif index == 1:
+            self._refresh_table(self.teszor_table, self.db.get_all_teszor)
+        elif index == 2:
+            self._refresh_table(self.jogcim_table, self.db.get_all_jogcimek)
+        elif index == 3:
+            self._refresh_table(self.kivetel_table, self.db.get_all_kivetelek)
+
+    def _refresh_table(self, table: QTableWidget, data_func):
+        rows = data_func()
+        table.setRowCount(len(rows))
+        for i, row in enumerate(rows):
+            for j, value in enumerate(row):
+                item = QTableWidgetItem(str(value))
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                table.setItem(i, j, item)
+
     def import_pdf(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "PDF fájl kiválasztása", "", "PDF fájlok (*.pdf)"
         )
 
         if file_path:
-            file_name = file_path.split("/")[-1]
-            self.status_info_label.setText(f"Kiválasztott fájl: {file_name}")
+            self.file_name = file_path.split("/")[-1]
+            # self.status_info_label.setText(f"Kiválasztott fájl: {file_name}")
+
+            # Folyamatjelző dialógus
+            self.progress = QProgressDialog(
+                "Feldolgozás folyamatban...", None, 0, 0, self
+            )
+            self.progress.setWindowTitle("Feldolgozás")
+            self.progress.setWindowModality(Qt.WindowModal)
+            self.progress.setCancelButton(None)
+            self.progress.setMinimumDuration(0)  # Azonnal jelenjen meg
+            self.progress.show()
+
+            # Azonnali frissítés (különben nem jelenik meg időben)
+            self.app.processEvents()
 
             processor = PdfProcessor(file_path, self.db)
-            success, message = processor.process("Vodafone_szamla.xlsx")
+            success, message = processor.process(
+                "Vodafone_szamla.xlsx", progress_callback=self.update_progress
+            )
 
-            self.status_info_label.setText(message)
+            self.progress.close()
+
+            self.show_message(
+                "Feldolgozás eredménye",
+                message,
+                QMessageBox.Information if success else QMessageBox.Warning,
+            )
+
+            # self.status_info_label.setText(message)
         else:
-            self.status_info_label.setText("Nincs fájl kiválasztva.")
+            self.show_message(
+                "Nincs fájl kiválasztva",
+                "Nem történt fájl kiválasztás.",
+                QMessageBox.Warning,
+            )
+            # self.status_info_label.setText("Nincs fájl kiválasztva.")
 
     def quit_app(self):
         """Kilépés az alkalmazásból."""
