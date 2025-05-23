@@ -7,6 +7,7 @@ from utils.utils import get_base_path, get_resource_path
 
 
 def main():
+
     app = QApplication(sys.argv)
 
     # Főablak létrehozása

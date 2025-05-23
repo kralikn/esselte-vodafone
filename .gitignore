@@ -17,7 +17,7 @@ env/
 # SQLite adatbázis – ha nem akarod verziókövetni
 # database.sqlite
 *.sqlite
-*.sql
+/*.sql
 
 # Operációs rendszer fájlok
 .DS_Store

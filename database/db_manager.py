@@ -70,25 +70,19 @@ class DatabaseManager:
 
     def get_all_phone_users(self):
         """Visszaadja a phone_user tábla összes rekordját (sim_number, owner)."""
-        self.cursor.execute("SELECT phone_number, owner FROM phone_user")
+        self.cursor.execute("SELECT * FROM phone_user")
         return self.cursor.fetchall()
 
     def get_all_teszor(self):
-        self.cursor.execute(
-            "SELECT teszor_kod, megnevezes, afa_kulcs, jogcim_id FROM teszor ORDER BY teszor_kod"
-        )
+        self.cursor.execute("SELECT * FROM teszor ORDER BY teszor_kod")
         return self.cursor.fetchall()
 
     def get_all_jogcimek(self):
-        self.cursor.execute(
-            "SELECT nev, afa_kulcs, afa_kod, fokonyvi_szam FROM jogcim ORDER BY nev"
-        )
+        self.cursor.execute("SELECT * FROM jogcim ORDER BY nev")
         return self.cursor.fetchall()
 
     def get_all_kivetelek(self):
-        self.cursor.execute(
-            "SELECT megnevezes, teszor_kod, afa_kulcs, jogcim_id FROM kivetel ORDER BY megnevezes"
-        )
+        self.cursor.execute("SELECT * FROM kivetel ORDER BY megnevezes")
         return self.cursor.fetchall()
 
     def get_all_teszor_categories(self):
@@ -127,6 +121,105 @@ class DatabaseManager:
             (teszor_kod, afa_kulcs),
         )
         return self.cursor.fetchone()
+
+    def add_phone_user(self, phone_number: str, owner: str):
+        self.cursor.execute(
+            "INSERT INTO phone_user (phone_number, owner) VALUES (?, ?)",
+            (phone_number, owner),
+        )
+        self.conn.commit()
+
+    def delete_phone_user(self, phone_id: int):
+        self.cursor.execute("DELETE FROM phone_user WHERE id = ?", (phone_id,))
+        self.conn.commit()
+
+    def update_phone_user(self, phone_id: int, phone_number: str, owner: str):
+        self.cursor.execute(
+            """
+            UPDATE phone_user
+            SET phone_number = ?, owner = ?
+            WHERE id = ?
+            """,
+            (phone_number, owner, phone_id),
+        )
+        self.conn.commit()
+
+    def clear_phone_users(self):
+        self.cursor.execute("DELETE FROM phone_user")
+        self.conn.commit()
+
+    def add_teszor(self, kod: str, megnevezes: str, afa_kulcs: str, jogcim_id: int):
+        self.cursor.execute(
+            """
+            INSERT INTO teszor (teszor_kod, megnevezes, afa_kulcs, jogcim_id)
+            VALUES (?, ?, ?, ?)
+            """,
+            (kod, megnevezes, afa_kulcs, jogcim_id),
+        )
+        self.conn.commit()
+
+    def delete_teszor(self, teszor_id: int):
+        self.cursor.execute("DELETE FROM teszor WHERE id = ?", (teszor_id,))
+        self.conn.commit()
+
+    def update_teszor(
+        self, teszor_id: int, kod: str, megnevezes: str, afa_kulcs: str, jogcim_id: int
+    ):
+        self.cursor.execute(
+            """
+            UPDATE teszor
+            SET teszor_kod = ?, megnevezes = ?, afa_kulcs = ?, jogcim_id = ?
+            WHERE id = ?
+            """,
+            (kod, megnevezes, afa_kulcs, jogcim_id, teszor_id),
+        )
+        self.conn.commit()
+
+    def add_jogcim(self, nev: str, afa_kulcs: str, afa_kod: str, fokonyvi: str):
+        self.cursor.execute(
+            "INSERT INTO jogcim (nev, afa_kulcs, afa_kod, fokonyvi_szam) VALUES (?, ?, ?, ?)",
+            (nev, afa_kulcs, afa_kod, fokonyvi),
+        )
+        self.conn.commit()
+
+    def update_jogcim(
+        self, jogcim_id: int, nev: str, afa_kulcs: str, afa_kod: str, fokonyvi: str
+    ):
+        self.cursor.execute(
+            """
+            UPDATE jogcim
+            SET nev = ?, afa_kulcs = ?, afa_kod = ?, fokonyvi_szam = ?
+            WHERE id = ?
+            """,
+            (nev, afa_kulcs, afa_kod, fokonyvi, jogcim_id),
+        )
+        self.conn.commit()
+
+    def delete_jogcim(self, jogcim_id: int):
+        self.cursor.execute("DELETE FROM jogcim WHERE id = ?", (jogcim_id,))
+        self.conn.commit()
+
+    def add_kivetel(self, megnev, teszor_kod, afa_kulcs, jogcim_id):
+        self.cursor.execute(
+            "INSERT INTO kivetel (megnevezes, teszor_kod, afa_kulcs, jogcim_id) VALUES (?, ?, ?, ?)",
+            (megnev, teszor_kod, afa_kulcs, jogcim_id),
+        )
+        self.conn.commit()
+
+    def update_kivetel(self, kiv_id, megnev, teszor_kod, afa_kulcs, jogcim_id):
+        self.cursor.execute(
+            """
+            UPDATE kivetel
+            SET megnevezes = ?, teszor_kod = ?, afa_kulcs = ?, jogcim_id = ?
+            WHERE id = ?
+            """,
+            (megnev, teszor_kod, afa_kulcs, jogcim_id, kiv_id),
+        )
+        self.conn.commit()
+
+    def delete_kivetel(self, kiv_id):
+        self.cursor.execute("DELETE FROM kivetel WHERE id = ?", (kiv_id,))
+        self.conn.commit()
 
     def close(self):
         """Bezárja az adatbázis kapcsolatot."""
