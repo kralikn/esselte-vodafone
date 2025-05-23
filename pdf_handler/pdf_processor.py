@@ -22,10 +22,15 @@ class PdfProcessor:
         self.teszor_category_map = self._load_teszor_category_map()
 
     def _load_phone_user_map(self):
-        return dict(self.db.get_all_phone_users())
+        # return dict(self.db.get_all_phone_users())
+        return {phone: owner for (_, phone, owner) in self.db.get_all_phone_users()}
 
     def _load_teszor_category_map(self):
-        return dict(self.db.get_all_teszor_categories())
+        # return dict(self.db.get_all_teszor_categories())
+        return {
+            teszor_kod: megnevezes
+            for teszor_kod, megnevezes in self.db.get_all_teszor_categories()
+        }
 
     def process(self, output_excel_path: str, progress_callback=None):
         try:
