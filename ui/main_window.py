@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
         # Felső rész: Importálás
         import_layout = QVBoxLayout()
         import_layout.setAlignment(Qt.AlignTop)
-        label_import = QLabel("Törzsadatok:")
+        label_import = QLabel("PDF importálása:")
         label_import.setObjectName("sectionLabel")
 
         import_layout.addWidget(label_import)
